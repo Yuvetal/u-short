@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables (secrets)
+.env
+**/.env
+
+# Build output
+dist/
+build/
+**/dist/
+**/build/
+
+# Local MongoDB data directories (not to be committed)
+mongodb_data/
+mongodb_local/
+mongodb_bin/
+mongodb.zip
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
