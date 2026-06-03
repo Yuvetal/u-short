@@ -242,9 +242,43 @@ const Dashboard = () => {
           throw new Error('Bulk shortening is limited to 100 links per request');
         }
 
+        // Find existing duplicate destination URLs
+        const duplicates = [];
+        const filteredUrlsToProcess = [];
+
+        urlsToProcess.forEach(item => {
+          const normalizedInput = item.originalUrl.trim();
+          const normalizedInputWithProto = /^https?:\/\//i.test(normalizedInput) ? normalizedInput : 'https://' + normalizedInput;
+          const isDup = urls.some(u => u.originalUrl.toLowerCase() === normalizedInputWithProto.toLowerCase());
+          if (isDup) {
+            duplicates.push(item);
+          } else {
+            filteredUrlsToProcess.push(item);
+          }
+        });
+
+        let finalUrlsToProcess = urlsToProcess;
+
+        if (duplicates.length > 0) {
+          const createDups = window.confirm(
+            `We found ${duplicates.length} destination URL(s) in your CSV that already have active shortened links in your account.\n\n` +
+            `• Click OK to create duplicate shortened links for them.\n` +
+            `• Click Cancel to skip these duplicate URLs and only shorten the new ones.`
+          );
+
+          if (!createDups) {
+            finalUrlsToProcess = filteredUrlsToProcess;
+            if (finalUrlsToProcess.length === 0) {
+              setFormSuccess('All URLs in the CSV were duplicates and were skipped by your request.');
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+
         const res = await authFetch(`${API_BASE}/api/urls/bulk`, {
           method: 'POST',
-          body: JSON.stringify({ urls: urlsToProcess })
+          body: JSON.stringify({ urls: finalUrlsToProcess })
         });
         
         const data = await safeParseJson(res);
