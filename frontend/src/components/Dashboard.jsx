@@ -52,6 +52,7 @@ const Dashboard = () => {
   const [createMode, setCreateMode] = useState('single');
   const [csvFile, setCsvFile] = useState(null);
   const [bulkResults, setBulkResults] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Clipboard tracking for transient copy states
   const [copiedId, setCopiedId] = useState(null);
@@ -327,6 +328,59 @@ const Dashboard = () => {
       }
     } catch (err) {
       console.error('[Dashboard] Deletion error:', err.message);
+    }
+  };
+
+  // Handle Toggle selection of links
+  const handleToggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(x => x !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  // Handle Select/Deselect All currently filtered URLs
+  const handleSelectAll = (filteredList) => {
+    const filteredIds = filteredList.map(u => u._id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.includes(id));
+    
+    if (allSelected) {
+      // Deselect all filtered items
+      setSelectedIds(selectedIds.filter(id => !filteredIds.includes(id)));
+    } else {
+      // Select all filtered items (merge with existing selections)
+      const newSelections = new Set([...selectedIds, ...filteredIds]);
+      setSelectedIds(Array.from(newSelections));
+    }
+  };
+
+  // Bulk Delete Selected links
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to permanently delete the ${selectedIds.length} selected shortened links and all of their visitor analytics history?`)) {
+      return;
+    }
+
+    try {
+      const res = await authFetch(`${API_BASE}/api/urls/bulk-delete`, {
+        method: 'POST',
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await safeParseJson(res);
+      
+      if (data.success) {
+        setUrls(urls.filter(url => !selectedIds.includes(url._id)));
+        setSelectedIds([]);
+        if (selectedIds.includes(selectedUrlId)) {
+          setSelectedUrlId(null);
+          setAnalyticsData(null);
+        }
+      }
+    } catch (err) {
+      console.error('[Dashboard] Bulk deletion error:', err.message);
+      alert(err.message || 'Bulk deletion failed');
     }
   };
 
@@ -962,21 +1016,81 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <div className="catalog-list">
-                  {filteredUrls.map((url) => {
-                    const isExpired = url.expiresAt && new Date() > new Date(url.expiresAt);
-                    const linkCode = `${API_BASE}/${url.shortCode}`;
-                    return (
-                      <div key={url._id} className="url-item-card">
-                        <div className="url-item-header">
-                          <div className="url-main-info">
-                            <span className="short-url-link">
-                              /{url.shortCode}
-                            </span>
-                            <span className="original-url-text" title={url.originalUrl}>
-                              {url.originalUrl}
-                            </span>
-                          </div>
+                <>
+                  {/* Bulk Operations Toolbar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '14px',
+                    padding: '12px 18px',
+                    marginBottom: '16px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                      <input 
+                        type="checkbox"
+                        checked={filteredUrls.length > 0 && filteredUrls.every(u => selectedIds.includes(u._id))}
+                        onChange={() => handleSelectAll(filteredUrls)}
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          accentColor: '#8854d0',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <span style={{ fontWeight: '500' }}>
+                        {selectedIds.length > 0 
+                          ? `Selected ${selectedIds.length} of ${filteredUrls.length} link(s)` 
+                          : 'Select All Links'}
+                      </span>
+                    </div>
+
+                    {selectedIds.length > 0 && (
+                      <button 
+                        onClick={handleBulkDelete}
+                        className="btn btn-danger"
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          borderRadius: '8px',
+                          width: 'auto'
+                        }}
+                      >
+                        Delete Selected
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="catalog-list">
+                    {filteredUrls.map((url) => {
+                      const isExpired = url.expiresAt && new Date() > new Date(url.expiresAt);
+                      const linkCode = `${API_BASE}/${url.shortCode}`;
+                      return (
+                        <div key={url._id} className="url-item-card">
+                          <div className="url-item-header" style={{ gap: '16px' }}>
+                            <input 
+                              type="checkbox"
+                              checked={selectedIds.includes(url._id)}
+                              onChange={() => handleToggleSelect(url._id)}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                accentColor: '#8854d0',
+                                cursor: 'pointer',
+                                marginTop: '4px',
+                                flexShrink: 0
+                              }}
+                            />
+                            <div className="url-main-info">
+                              <span className="short-url-link">
+                                /{url.shortCode}
+                              </span>
+                              <span className="original-url-text" title={url.originalUrl}>
+                                {url.originalUrl}
+                              </span>
+                            </div>
 
                           <div className="url-item-actions">
                             <button 
@@ -1056,6 +1170,7 @@ const Dashboard = () => {
                     );
                   })}
                 </div>
+              </>
               )}
             </div>
           )}

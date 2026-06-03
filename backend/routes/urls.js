@@ -530,4 +530,42 @@ router.get('/:id/analytics', protect, async (req, res) => {
   }
 });
 
+// @route   POST /api/urls/bulk-delete
+// @desc    Bulk delete multiple shortened links and logs
+// @access  Private
+router.post('/bulk-delete', protect, async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of URL IDs to delete'
+      });
+    }
+
+    // Delete matching URL documents owned by user
+    const deleteResult = await Url.deleteMany({
+      _id: { $in: ids },
+      userId: req.user.id
+    });
+
+    // Delete associated logs
+    await VisitLog.deleteMany({ urlId: { $in: ids } });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deleted ${deleteResult.deletedCount} links and their analytics logs.`
+    });
+
+  } catch (error) {
+    console.error(`[URLs POST bulk-delete] Error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error encountered during bulk deletion'
+    });
+  }
+});
+
 module.exports = router;
+
