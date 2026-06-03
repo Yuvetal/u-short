@@ -6,14 +6,26 @@ U-Short is a full-stack, secure, self-hosted URL shortening service. It acts as 
 
 ## 🚀 Key Features
 
-*   **Secure Authentication Gate:** Individual user registration and sessions enforced with Bcrypt password hashing and signed JSON Web Tokens (JWT).
+*   **Secure Authentication Gate:** Enforced with Bcrypt password hashing and signed JSON Web Tokens (JWT).
 *   **Asynchronous Redirection Engine:** Redirect lookups resolve in under **10ms** by triggering visitor tracking updates asynchronously, bypassing write-blocking delays to ensure compliance with the <50ms speed threshold.
 *   **Aesthetic User Workspace:** Premium responsive dark-mode cockpit featuring glassmorphic controls, copy shortcuts, and a search filter.
 *   **Dynamic Analytics Views:** Dynamic click count charts (using Recharts), browser distributions, OS splits, and geographical location logs.
-*   **Interactive QR Code Canvas:** Dynamic on-demand QR code generation for every link.
+*   **Interactive QR Code Canvas:** Dynamic on-demand QR code generation for every link with high-resolution **PNG download options**.
+*   **Access Gating Passwords:** Secure private short links with access passwords, prompting redirect visitors with a glassmorphic credential authorization page.
 *   **Advanced URL Lifetimes:** Optional custom slug aliases and calendar-picker expiration settings (TTL validation).
 *   **Edit Destination Targets:** Modification of target destination URLs of active short codes on the fly (Bonus Feature).
 *   **Public Stats Pages:** Unauthenticated aggregate metrics charts for public validation (Bonus Feature).
+*   **Bulk URL CSV upload:** Batch creation of up to 100 links (supporting custom aliases, lifetimes, and passwords) with mapped output CSV downloads and duplicate validation warnings (Bonus Feature).
+*   **Analytics Exporter:** Download visitor telemetry logs ledger directly as a CSV spreadsheet.
+
+---
+
+## 📝 Assumptions Made
+
+*   **Database Connectivity:** We assume MongoDB is accessible either locally at `mongodb://127.0.0.1:27017` or through an Atlas SRV connection string. Node's local SRV DNS lookup issues are assumed to be bypassed via custom public resolvers (like `8.8.8.8`) or local server fallbacks.
+*   **IP Geolocation Accuracy:** GeoIP-Lite resolving assumes incoming requests originate from public client IPs. For local E2E developer testing, localhost client requests (`127.0.0.1` / `::1`) are automatically normalized to a public Indian IP address (`103.241.12.89`) to output realistic chart distributions.
+*   **Link Password Storage:** For simplicity and rapid redirection lookups, access passwords set on short URLs are saved as plain text in the database documents. In a strict corporate environment, these would be cryptographically hashed.
+*   **CSV Import Limitations:** Bulk importing assumes standard CSV column configurations (`url,customAlias,expiresAt,password`). Batch limits are capped at 100 rows per upload to maintain backend memory efficiency.
 
 ---
 
