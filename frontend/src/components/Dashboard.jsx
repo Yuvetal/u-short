@@ -503,7 +503,7 @@ const Dashboard = () => {
       {/* Navigation Header */}
       <nav className="nav-bar">
         <div className="nav-logo">
-          <span>⚡</span> KATO.LINK
+          <span>⚡</span> U-SHORT
         </div>
         <div className="nav-links">
           <span className="user-email">{user?.email}</span>

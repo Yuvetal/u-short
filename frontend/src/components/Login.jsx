@@ -34,7 +34,7 @@ const Login = () => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <div className="auth-logo">⚡ KATO.LINK</div>
+          <div className="auth-logo">⚡ U-SHORT</div>
           <p className="auth-subtitle">Sign in to manage your high-speed shortened links</p>
         </div>
 

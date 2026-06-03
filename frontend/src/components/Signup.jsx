@@ -45,7 +45,7 @@ const Signup = () => {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <div className="auth-logo">⚡ KATO.LINK</div>
+          <div className="auth-logo">⚡ U-SHORT</div>
           <p className="auth-subtitle">Register a new profile to generate trackable links</p>
         </div>
 

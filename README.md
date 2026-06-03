@@ -1,6 +1,6 @@
-# Kato.Link: Secure High-Performance URL Shortener & Analytics
+# U-Short: Secure High-Performance URL Shortener & Analytics
 
-Kato.Link is a full-stack, secure, self-hosted URL shortening service. It acts as an optimized redirection gateway and a real-time analytics panel where registered users can manage custom short links, trace visitor characteristics (browsers, operating systems, geographic origins), and view daily click charts.
+U-Short is a full-stack, secure, self-hosted URL shortening service. It acts as an optimized redirection gateway and a real-time analytics panel where registered users can manage custom short links, trace visitor characteristics (browsers, operating systems, geographic origins), and view daily click charts.
 
 ---
 

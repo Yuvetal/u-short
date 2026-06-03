@@ -47,7 +47,7 @@ const PublicStats = () => {
       {/* Navigation Header */}
       <nav className="nav-bar">
         <Link to="/login" className="nav-logo">
-          <span>⚡</span> KATO.LINK
+          <span>⚡</span> U-SHORT
         </Link>
         <div className="nav-links">
           <Link to="/login" className="btn btn-outline logout-btn">
@@ -203,7 +203,7 @@ const PublicStats = () => {
             <div className="glass-panel" style={{ textAlign: 'center', padding: '40px', background: 'linear-gradient(135deg, rgba(136, 84, 208, 0.15), rgba(15, 188, 249, 0.1))', border: '1px solid rgba(136, 84, 208, 0.25)' }}>
               <h3 style={{ fontSize: '22px', marginBottom: '8px' }}>Create Your Own Trackable Links</h3>
               <p style={{ color: '#a4b0be', fontSize: '14px', maxWidth: '480px', margin: '0 auto 24px' }}>
-                Join KATO.LINK today to shorten URLs, configure custom domain aliases, set lifetimes, and gather deep interaction insights.
+                Join U-SHORT today to shorten URLs, configure custom domain aliases, set lifetimes, and gather deep interaction insights.
               </p>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                 <Link to="/signup" className="btn btn-primary" style={{ maxWidth: '160px' }}>Sign Up Free</Link>
