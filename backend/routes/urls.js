@@ -151,6 +151,131 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// @route   POST /api/urls/bulk
+// @desc    Bulk shorten multiple URLs (CSV support)
+// @access  Private
+router.post('/bulk', protect, async (req, res) => {
+  try {
+    const { urls } = req.body;
+
+    if (!urls || !Array.isArray(urls)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an array of URLs to shorten'
+      });
+    }
+
+    if (urls.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bulk shortening is limited to 100 links per request'
+      });
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < urls.length; i++) {
+      const { originalUrl, customAlias, expiresAt } = urls[i];
+
+      // Validate URL presence
+      if (!originalUrl) {
+        errors.push({ index: i, error: 'Destination URL is required' });
+        continue;
+      }
+
+      // Validate URL format
+      if (!isValidUrl(originalUrl)) {
+        errors.push({ index: i, url: originalUrl, error: 'Invalid URL format (must start with http:// or https://)' });
+        continue;
+      }
+
+      let finalShortCode;
+
+      // Handle custom alias
+      if (customAlias) {
+        const trimmedAlias = customAlias.trim();
+        const aliasRegex = /^[a-zA-Z0-9-]+$/;
+        
+        if (!aliasRegex.test(trimmedAlias) || trimmedAlias.length < 3 || trimmedAlias.length > 30) {
+          errors.push({ index: i, url: originalUrl, error: 'Custom alias must be 3-30 alphanumeric characters/hyphens' });
+          continue;
+        }
+
+        const reservedWords = ['api', 'auth', 'urls', 'static', 'assets', 'favicon.ico', 'public', 'dashboard', 'login', 'signup'];
+        if (reservedWords.includes(trimmedAlias.toLowerCase())) {
+          errors.push({ index: i, url: originalUrl, error: 'Alias is a reserved keyword' });
+          continue;
+        }
+
+        const aliasExists = await Url.findOne({ shortCode: trimmedAlias });
+        if (aliasExists) {
+          errors.push({ index: i, url: originalUrl, error: 'Alias is already in use by another link' });
+          continue;
+        }
+
+        finalShortCode = trimmedAlias;
+      } else {
+        // Auto-generate code
+        let attempts = 0;
+        let isUnique = false;
+        while (!isUnique && attempts < 5) {
+          finalShortCode = generateShortCode();
+          const codeExists = await Url.findOne({ shortCode: finalShortCode });
+          if (!codeExists) {
+            isUnique = true;
+          }
+          attempts++;
+        }
+
+        if (!isUnique) {
+          errors.push({ index: i, url: originalUrl, error: 'Failed to generate a unique short code' });
+          continue;
+        }
+      }
+
+      // Handle expiration
+      let expirationDate = null;
+      if (expiresAt) {
+        expirationDate = new Date(expiresAt);
+        if (isNaN(expirationDate.getTime())) {
+          errors.push({ index: i, url: originalUrl, error: 'Invalid expiration date format' });
+          continue;
+        }
+        if (expirationDate <= new Date()) {
+          errors.push({ index: i, url: originalUrl, error: 'Expiration date must be in the future' });
+          continue;
+        }
+      }
+
+      // Create URL document
+      const newUrl = await Url.create({
+        userId: req.user.id,
+        originalUrl,
+        shortCode: finalShortCode,
+        customAlias: customAlias ? finalShortCode : null,
+        expiresAt: expirationDate
+      });
+
+      results.push(newUrl);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Bulk URL processing completed. Created: ${results.length}, Failed: ${errors.length}`,
+      data: results,
+      errors
+    });
+
+  } catch (error) {
+    console.error(`[URLs POST bulk] Error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error encountered during bulk URL shortening'
+    });
+  }
+});
+
 // @route   GET /api/urls
 // @desc    Fetch catalog of all short links created by the user
 // @access  Private

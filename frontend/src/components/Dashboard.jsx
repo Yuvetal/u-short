@@ -49,6 +49,9 @@ const Dashboard = () => {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [createMode, setCreateMode] = useState('single');
+  const [csvFile, setCsvFile] = useState(null);
+  const [bulkResults, setBulkResults] = useState(null);
 
   // Clipboard tracking for transient copy states
   const [copiedId, setCopiedId] = useState(null);
@@ -127,6 +130,123 @@ const Dashboard = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Download a template CSV for bulk uploads
+  const downloadCsvTemplate = () => {
+    const csvContent = 'data:text/csv;charset=utf-8,url,customAlias,expiresAt\nhttps://google.com,google-home,\nhttps://github.com/Yuvetal/u-short,project-repo,2026-12-31\n';
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'bulk_url_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Download bulk processed results as CSV
+  const downloadBulkCsvResults = () => {
+    if (!bulkResults) return;
+    
+    let csvContent = 'data:text/csv;charset=utf-8,Original URL,Shortened URL,Custom Alias,Status,Error\n';
+    
+    // Add success rows
+    bulkResults.created.forEach(u => {
+      csvContent += `"${u.originalUrl}","${API_BASE}/${u.shortCode}","${u.customAlias || ''}","SUCCESS",""\n`;
+    });
+    
+    // Add fail rows
+    bulkResults.errors.forEach(e => {
+      csvContent += `"${e.url || ''}","","","FAILED","${e.error}"\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `shortened_bulk_links_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Parse CSV and batch create short URLs
+  const handleBulkShorten = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
+    setBulkResults(null);
+
+    if (!csvFile) {
+      setFormError('Please select a CSV file to upload');
+      return;
+    }
+
+    setSubmitting(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/);
+        
+        const urlsToProcess = [];
+        let startIndex = 0;
+
+        // Header row skip
+        if (lines[0] && (lines[0].toLowerCase().includes('url') || lines[0].toLowerCase().includes('alias'))) {
+          startIndex = 1;
+        }
+
+        for (let i = startIndex; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          const parts = line.split(',').map(p => p.replace(/^["']|["']$/g, '').trim());
+          if (parts[0]) {
+            urlsToProcess.push({
+              originalUrl: parts[0],
+              customAlias: parts[1] || undefined,
+              expiresAt: parts[2] || undefined
+            });
+          }
+        }
+
+        if (urlsToProcess.length === 0) {
+          throw new Error('No valid URL records found in the CSV file');
+        }
+
+        if (urlsToProcess.length > 100) {
+          throw new Error('Bulk shortening is limited to 100 links per request');
+        }
+
+        const res = await authFetch(`${API_BASE}/api/urls/bulk`, {
+          method: 'POST',
+          body: JSON.stringify({ urls: urlsToProcess })
+        });
+        
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || 'Bulk URL processing request failed');
+        }
+
+        setFormSuccess(`Bulk processing complete! Created: ${data.data.length}, Failed: ${data.errors.length}`);
+        setBulkResults({
+          successCount: data.data.length,
+          failCount: data.errors.length,
+          created: data.data,
+          errors: data.errors
+        });
+
+        setCsvFile(null);
+        fetchUrls();
+
+      } catch (err) {
+        setFormError(err.message || 'Error occurred while processing bulk upload');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+    reader.readAsText(csvFile);
   };
 
   // Handle URL deletion
@@ -246,7 +366,60 @@ const Dashboard = () => {
         {/* Left Side Column - Creator Controls */}
         <div className="dashboard-sidebar">
           <div className="glass-panel">
-            <h3 className="panel-title">Shorten Target URL</h3>
+            <h3 className="panel-title">Shortener Tool</h3>
+            
+            {/* Toggle Modes Tab Bar */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '20px',
+              marginTop: '-8px'
+            }}>
+              <button 
+                type="button"
+                onClick={() => {
+                  setCreateMode('single');
+                  setFormError('');
+                  setFormSuccess('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: 'none',
+                  border: 'none',
+                  color: createMode === 'single' ? '#8854d0' : '#a4b0be',
+                  fontWeight: '600',
+                  borderBottom: createMode === 'single' ? '2.5px solid #8854d0' : 'none',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Single Link
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setCreateMode('bulk');
+                  setFormError('');
+                  setFormSuccess('');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: 'none',
+                  border: 'none',
+                  color: createMode === 'bulk' ? '#8854d0' : '#a4b0be',
+                  fontWeight: '600',
+                  borderBottom: createMode === 'bulk' ? '2.5px solid #8854d0' : 'none',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Bulk (CSV)
+              </button>
+            </div>
             
             {formError && (
               <div style={{
@@ -276,62 +449,150 @@ const Dashboard = () => {
               </div>
             )}
 
-            <form onSubmit={handleShorten} className="creator-form">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Destination URL</label>
-                <div className="input-container">
-                  <input
-                    type="url"
-                    className="form-input"
-                    placeholder="https://example.com/very/long/query/param?id=42"
-                    value={originalUrl}
-                    onChange={(e) => setOriginalUrl(e.target.value)}
-                    disabled={submitting}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Advanced Configurations Drawer */}
-              <div 
-                className="advanced-trigger"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                <span>Advanced Customizations</span>
-                {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </div>
-
-              {showAdvanced && (
-                <div className="advanced-fields">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Custom Alias (Optional)</label>
+            {createMode === 'single' ? (
+              <form onSubmit={handleShorten} className="creator-form">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Destination URL</label>
+                  <div className="input-container">
                     <input
-                      type="text"
+                      type="url"
                       className="form-input"
-                      placeholder="custom-short-slug"
-                      value={customAlias}
-                      onChange={(e) => setCustomAlias(e.target.value)}
+                      placeholder="https://example.com/very/long/query/param?id=42"
+                      value={originalUrl}
+                      onChange={(e) => setOriginalUrl(e.target.value)}
                       disabled={submitting}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Expiration Date (Optional)</label>
-                    <input
-                      type="datetime-local"
-                      className="form-input"
-                      value={expiresAt}
-                      onChange={(e) => setExpiresAt(e.target.value)}
-                      disabled={submitting}
+                      required
                     />
                   </div>
                 </div>
-              )}
 
-              <button type="submit" className="btn btn-primary" disabled={submitting}>
-                <Plus size={18} /> {submitting ? 'Generating...' : 'Shorten URL'}
-              </button>
-            </form>
+                {/* Advanced Configurations Drawer */}
+                <div 
+                  className="advanced-trigger"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  <span>Advanced Customizations</span>
+                  {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </div>
+
+                {showAdvanced && (
+                  <div className="advanced-fields">
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Custom Alias (Optional)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="custom-short-slug"
+                        value={customAlias}
+                        onChange={(e) => setCustomAlias(e.target.value)}
+                        disabled={submitting}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Expiration Date (Optional)</label>
+                      <input
+                        type="datetime-local"
+                        className="form-input"
+                        value={expiresAt}
+                        onChange={(e) => setExpiresAt(e.target.value)}
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  <Plus size={18} /> {submitting ? 'Generating...' : 'Shorten URL'}
+                </button>
+              </form>
+            ) : (
+              /* Bulk Mode Layout */
+              <form onSubmit={handleBulkShorten} className="creator-form">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Upload CSV File</label>
+                  <div style={{
+                    border: '1px dashed rgba(255, 255, 255, 0.15)',
+                    borderRadius: '14px',
+                    padding: '20px',
+                    textAlign: 'center',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}>
+                    <input 
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => setCsvFile(e.target.files[0])}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer'
+                      }}
+                      disabled={submitting}
+                    />
+                    <div style={{ color: '#0fbcf9', fontSize: '28px', marginBottom: '8px' }}>📂</div>
+                    <span style={{ fontSize: '13px', color: '#a4b0be', display: 'block' }}>
+                      {csvFile ? csvFile.name : 'Drag & drop or browse .csv'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    onClick={downloadCsvTemplate} 
+                    className="btn btn-outline"
+                    style={{ flex: 1, padding: '10px', fontSize: '13px', borderRadius: '10px' }}
+                  >
+                    Template CSV
+                  </button>
+                  
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    disabled={submitting || !csvFile}
+                    style={{ flex: 2, padding: '10px', fontSize: '13px', borderRadius: '10px' }}
+                  >
+                    {submitting ? 'Processing...' : 'Shorten List'}
+                  </button>
+                </div>
+
+                {bulkResults && (
+                  <div style={{
+                    marginTop: '12px',
+                    background: 'rgba(15, 188, 249, 0.08)',
+                    border: '1px solid rgba(15, 188, 249, 0.25)',
+                    borderRadius: '12px',
+                    padding: '14px',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#f5f7fa', marginBottom: '10px' }}>
+                      Processed: <strong>{bulkResults.successCount}</strong> successfully,{' '}
+                      <strong style={{ color: bulkResults.failCount > 0 ? '#ff4757' : '#a4b0be' }}>{bulkResults.failCount}</strong> failed.
+                    </p>
+                    <button 
+                      type="button"
+                      onClick={downloadBulkCsvResults}
+                      className="btn btn-primary"
+                      style={{
+                        background: 'var(--accent-gradient)',
+                        fontSize: '12px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        width: '100%'
+                      }}
+                    >
+                      Download Shortened CSV
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
           </div>
 
           {/* Quick Metrics card */}
