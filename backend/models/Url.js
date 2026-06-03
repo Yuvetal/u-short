@@ -24,6 +24,11 @@ const UrlSchema = new mongoose.Schema({
     trim: true,
     default: null
   },
+  password: {
+    type: String,
+    trim: true,
+    default: null
+  },
   clicks: {
     type: Number,
     default: 0

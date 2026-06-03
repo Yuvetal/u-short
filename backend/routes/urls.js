@@ -40,7 +40,7 @@ const isValidUrl = (urlString) => {
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { originalUrl, customAlias, expiresAt } = req.body;
+    const { originalUrl, customAlias, expiresAt, password } = req.body;
 
     // Validate original URL presence
     if (!originalUrl) {
@@ -146,7 +146,8 @@ router.post('/', protect, async (req, res) => {
       originalUrl: normalizedUrl,
       shortCode: finalShortCode,
       customAlias: customAlias ? finalShortCode : null,
-      expiresAt: expirationDate
+      expiresAt: expirationDate,
+      password: password || null
     });
 
     res.status(201).json({
@@ -189,7 +190,7 @@ router.post('/bulk', protect, async (req, res) => {
     const errors = [];
 
     for (let i = 0; i < urls.length; i++) {
-      const { originalUrl, customAlias, expiresAt } = urls[i];
+      const { originalUrl, customAlias, expiresAt, password } = urls[i];
 
       // Validate URL presence
       if (!originalUrl) {
@@ -269,7 +270,8 @@ router.post('/bulk', protect, async (req, res) => {
         originalUrl: normalizedUrl,
         shortCode: finalShortCode,
         customAlias: customAlias ? finalShortCode : null,
-        expiresAt: expirationDate
+        expiresAt: expirationDate,
+        password: password || null
       });
 
       results.push(newUrl);

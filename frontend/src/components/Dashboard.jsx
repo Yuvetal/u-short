@@ -45,6 +45,7 @@ const Dashboard = () => {
   const [originalUrl, setOriginalUrl] = useState('');
   const [customAlias, setCustomAlias] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [password, setPassword] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -129,6 +130,7 @@ const Dashboard = () => {
       const body = { originalUrl };
       if (customAlias) body.customAlias = customAlias;
       if (expiresAt) body.expiresAt = expiresAt;
+      if (password) body.password = password;
 
       const res = await authFetch(`${API_BASE}/api/urls`, {
         method: 'POST',
@@ -144,6 +146,7 @@ const Dashboard = () => {
       setOriginalUrl('');
       setCustomAlias('');
       setExpiresAt('');
+      setPassword('');
       setShowAdvanced(false);
       
       // Refresh list
@@ -158,7 +161,7 @@ const Dashboard = () => {
 
   // Download a template CSV for bulk uploads
   const downloadCsvTemplate = () => {
-    const csvContent = 'data:text/csv;charset=utf-8,url,customAlias,expiresAt\nhttps://google.com,google-home,\nhttps://github.com/Yuvetal/u-short,project-repo,2026-12-31\n';
+    const csvContent = 'data:text/csv;charset=utf-8,url,customAlias,expiresAt,password\nhttps://google.com,google-home,,\nhttps://github.com/Yuvetal/u-short,project-repo,2026-12-31,securePass123\n';
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -230,7 +233,8 @@ const Dashboard = () => {
             urlsToProcess.push({
               originalUrl: parts[0],
               customAlias: parts[1] || undefined,
-              expiresAt: parts[2] || undefined
+              expiresAt: parts[2] || undefined,
+              password: parts[3] || undefined
             });
           }
         }
@@ -390,6 +394,43 @@ const Dashboard = () => {
     navigator.clipboard.writeText(fullShortUrl);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Download QR Code as a PNG image file
+  const downloadQrCodePng = () => {
+    const canvas = document.querySelector('.modal-content canvas');
+    if (!canvas) return;
+    const pngUrl = canvas.toDataURL("image/png");
+    const downloadLink = document.createElement("a");
+    downloadLink.href = pngUrl;
+    
+    const urlParts = qrLink.split('/');
+    const code = urlParts[urlParts.length - 1];
+    downloadLink.download = `qrcode_${code}.png`;
+    
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  };
+
+  // Export URL visitor logs as a downloadable CSV spreadsheet
+  const exportAnalyticsToCsv = () => {
+    if (!analyticsData || !analyticsData.recentHistory || analyticsData.recentHistory.length === 0) return;
+
+    let csvContent = 'data:text/csv;charset=utf-8,Timestamp,IP Address,Browser,OS,Country\n';
+    
+    analyticsData.recentHistory.forEach(log => {
+      const formattedTime = new Date(log.timestamp).toISOString().replace(/T/, ' ').replace(/\..+/, '');
+      csvContent += `"${formattedTime}","${log.ipAddress}","${log.browser}","${log.os}","${log.country}"\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `analytics_logs_${analyticsData.shortCode}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Fetch detailed metrics
@@ -607,6 +648,18 @@ const Dashboard = () => {
                         className="form-input"
                         value={expiresAt}
                         onChange={(e) => setExpiresAt(e.target.value)}
+                        disabled={submitting}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Access Password (Optional)</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Set link access password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         disabled={submitting}
                       />
                     </div>
@@ -948,7 +1001,19 @@ const Dashboard = () => {
 
                     {/* Recent Visit Logs list */}
                     <div className="glass-panel full-width-chart">
-                      <h4 style={{ fontSize: '16px', marginBottom: '20px', fontWeight: '700' }}>RECENT VISITOR LOGS (LAST 50 CLICKS)</h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>RECENT VISITOR LOGS (LAST 50 CLICKS)</h4>
+                        {analyticsData.recentHistory.length > 0 && (
+                          <button 
+                            type="button"
+                            onClick={exportAnalyticsToCsv}
+                            className="btn btn-outline"
+                            style={{ padding: '6px 12px', fontSize: '12px', width: 'auto', borderRadius: '8px' }}
+                          >
+                            Export to CSV
+                          </button>
+                        )}
+                      </div>
                       {analyticsData.recentHistory.length === 0 ? (
                         <div className="empty-state" style={{ padding: '40px' }}>
                           <p style={{ fontSize: '14px' }}>No click events logged for this short URL yet.</p>
@@ -1248,9 +1313,14 @@ const Dashboard = () => {
             <p style={{ color: '#a4b0be', fontSize: '13px', marginBottom: '24px', wordBreak: 'break-all' }}>
               {qrLink}
             </p>
-            <button onClick={() => setQrLink(null)} className="btn btn-outline">
-              Close Canvas
-            </button>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+              <button onClick={downloadQrCodePng} className="btn btn-primary" style={{ flex: 1, padding: '12px', borderRadius: '12px' }}>
+                Download PNG
+              </button>
+              <button onClick={() => setQrLink(null)} className="btn btn-outline" style={{ flex: 1, padding: '12px', borderRadius: '12px' }}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
