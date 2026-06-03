@@ -14,15 +14,26 @@ const generateShortCode = (length = 6) => {
   return result;
 };
 
+// URL normalization helper (prepends https:// if protocol is missing)
+const normalizeUrl = (urlString) => {
+  if (!urlString) return '';
+  let url = urlString.trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  return url;
+};
+
 // URL validation helper (standard URL pattern check)
 const isValidUrl = (urlString) => {
   try {
-    const url = new URL(urlString);
+    const url = new URL(normalizeUrl(urlString));
     return url.protocol === 'http:' || url.protocol === 'https:';
   } catch (err) {
     return false;
   }
 };
+
 
 // @route   POST /api/urls
 // @desc    Shorten a long URL
@@ -39,11 +50,13 @@ router.post('/', protect, async (req, res) => {
       });
     }
 
+    const normalizedUrl = normalizeUrl(originalUrl);
+
     // Validate original URL format
-    if (!isValidUrl(originalUrl)) {
+    if (!isValidUrl(normalizedUrl)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid original URL (starting with http:// or https://)'
+        message: 'Please provide a valid original URL'
       });
     }
 
@@ -130,7 +143,7 @@ router.post('/', protect, async (req, res) => {
     // Insert new URL into database
     const newUrl = await Url.create({
       userId: req.user.id,
-      originalUrl,
+      originalUrl: normalizedUrl,
       shortCode: finalShortCode,
       customAlias: customAlias ? finalShortCode : null,
       expiresAt: expirationDate
@@ -184,9 +197,11 @@ router.post('/bulk', protect, async (req, res) => {
         continue;
       }
 
+      const normalizedUrl = normalizeUrl(originalUrl);
+
       // Validate URL format
-      if (!isValidUrl(originalUrl)) {
-        errors.push({ index: i, url: originalUrl, error: 'Invalid URL format (must start with http:// or https://)' });
+      if (!isValidUrl(normalizedUrl)) {
+        errors.push({ index: i, url: originalUrl, error: 'Invalid URL format' });
         continue;
       }
 
@@ -251,7 +266,7 @@ router.post('/bulk', protect, async (req, res) => {
       // Create URL document
       const newUrl = await Url.create({
         userId: req.user.id,
-        originalUrl,
+        originalUrl: normalizedUrl,
         shortCode: finalShortCode,
         customAlias: customAlias ? finalShortCode : null,
         expiresAt: expirationDate

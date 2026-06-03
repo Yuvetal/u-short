@@ -113,6 +113,16 @@ const Dashboard = () => {
       return;
     }
 
+    // Duplicate destination URL confirmation check
+    const normalizedInput = originalUrl.trim();
+    const normalizedInputWithProto = /^https?:\/\//i.test(normalizedInput) ? normalizedInput : 'https://' + normalizedInput;
+    const existing = urls.find(u => u.originalUrl.toLowerCase() === normalizedInputWithProto.toLowerCase());
+    if (existing) {
+      if (!window.confirm(`You already have a shortened link for this URL: /${existing.shortCode}. Do you want to create another duplicate short link?`)) {
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const body = { originalUrl };
@@ -597,11 +607,34 @@ const Dashboard = () => {
                         fontSize: '12px',
                         padding: '8px 12px',
                         borderRadius: '8px',
-                        width: '100%'
+                        width: '100%',
+                        marginBottom: bulkResults.failCount > 0 ? '12px' : 0
                       }}
                     >
                       Download Shortened CSV
                     </button>
+
+                    {bulkResults.failCount > 0 && (
+                      <div style={{
+                        marginTop: '12px',
+                        background: 'rgba(255, 71, 87, 0.06)',
+                        border: '1px solid rgba(255, 71, 87, 0.2)',
+                        borderRadius: '10px',
+                        padding: '10px',
+                        textAlign: 'left',
+                        maxHeight: '120px',
+                        overflowY: 'auto'
+                      }}>
+                        <h5 style={{ fontSize: '11px', color: '#ff4757', marginBottom: '6px', fontWeight: '700' }}>FAILURES:</h5>
+                        <ul style={{ fontSize: '11px', color: '#a4b0be', paddingLeft: '14px', margin: 0, listStyleType: 'disc' }}>
+                          {bulkResults.errors.map((e, idx) => (
+                            <li key={idx} style={{ marginBottom: '4px', wordBreak: 'break-all' }}>
+                              Row {e.index + 1} ({e.url || 'Empty'}): <span style={{ color: '#ff6b81' }}>{e.error}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </form>
