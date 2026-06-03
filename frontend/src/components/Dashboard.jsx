@@ -70,11 +70,24 @@ const Dashboard = () => {
   // QR Modal state
   const [qrLink, setQrLink] = useState(null);
 
+  // Helper to parse JSON responses safely and avoid HTML parser exceptions
+  const safeParseJson = async (res) => {
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await res.json();
+    }
+    const text = await res.text();
+    if (text.includes('<!DOCTYPE html>') || text.includes('<html>')) {
+      throw new Error(`Server returned HTML (Status: ${res.status}). If you just pushed an update, please wait 2-3 minutes for the backend deployment on Render to finish building.`);
+    }
+    throw new Error(text || `Server returned invalid response (Status: ${res.status})`);
+  };
+
   // Load URL catalog
   const fetchUrls = async () => {
     try {
       const res = await authFetch(`${API_BASE}/api/urls`);
-      const data = await res.json();
+      const data = await safeParseJson(res);
       if (data.success) {
         setUrls(data.data);
       }
@@ -110,7 +123,7 @@ const Dashboard = () => {
         method: 'POST',
         body: JSON.stringify(body)
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'URL shortening failed');
@@ -224,7 +237,7 @@ const Dashboard = () => {
           body: JSON.stringify({ urls: urlsToProcess })
         });
         
-        const data = await res.json();
+        const data = await safeParseJson(res);
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'Bulk URL processing request failed');
         }
@@ -259,7 +272,7 @@ const Dashboard = () => {
       const res = await authFetch(`${API_BASE}/api/urls/${id}`, {
         method: 'DELETE'
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (data.success) {
         setUrls(urls.filter(url => url._id !== id));
@@ -288,7 +301,7 @@ const Dashboard = () => {
     setAnalyticsData(null);
     try {
       const res = await authFetch(`${API_BASE}/api/urls/${id}/analytics`);
-      const data = await res.json();
+      const data = await safeParseJson(res);
       if (data.success) {
         setAnalyticsData(data.data);
       }
@@ -315,7 +328,7 @@ const Dashboard = () => {
         method: 'PATCH',
         body: JSON.stringify({ originalUrl: newDestinationUrl })
       });
-      const data = await res.json();
+      const data = await safeParseJson(res);
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Target update failed');
