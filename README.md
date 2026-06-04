@@ -39,8 +39,11 @@ U-Short is a full-stack, secure, self-hosted URL shortening service. It acts as 
 
 ---
 
-## 📐 System Architecture
+## 📐 AI Planning & System Architecture
 
+This project was built following a structured AI-assisted application building workflow. You can read the detailed [AI Implementation Plan](IMPLEMENTATION_PLAN.md) which outlines the project roadmap, API endpoints, database schemas, edge-case mitigation strategies, and definitions of done.
+
+### Architecture Diagram
 ```mermaid
 graph TD
     User([End User / Link Creator]) -->|HTTPS Requests| FE[React SPA Client]
@@ -154,8 +157,77 @@ This guarantees that User B can never read or delete short links or analytics lo
 ## 📺 Walkthrough Demonstration
 
 A Loom/YouTube video explaining this application can be found at:  
-👉 **[Loom Walkthrough Demonstration Video](https://www.loom.com/share/placeholder-link)**  
+👉 **[Loom Walkthrough Demonstration Video](https://www.loom.com/share/98a31ae630be4dff9c88fe8c7a84353e)**  
 *(Includes terminal execution, database states, and frontend UI flow)*
+
+---
+
+## 📊 Sample Output (Logs, Images & Database Entries)
+
+As demonstrated in the walkthrough video, here is the sample output of the application:
+
+### 1. Application User Interface Screenshots
+Here are key screens from the U-Short web workspace:
+
+| **Authentication Screens** | **Dashboard & Analytics** |
+| :--- | :--- |
+| **Login Screen** <br> ![Login Screen](assets/login.png) | **User Workspace Dashboard** <br> ![User Workspace Dashboard](assets/dashboard.png) |
+| **Registration Screen** <br> ![Registration Screen](assets/register.png) | **Link Analytics Panel** <br> ![Link Analytics Panel](assets/analytics.png) |
+
+---
+
+### 2. Sample Database Entries (MongoDB JSON representations)
+
+#### Users Collection
+```json
+{
+  "_id": { "$oid": "665b1d4e2f1a3c001f8b4567" },
+  "email": "developer@katomaran.com",
+  "password": "$2a$12$R9hK...hashedString...",
+  "createdAt": { "$date": "2026-06-02T16:00:00.000Z" }
+}
+```
+
+#### Urls Collection
+```json
+{
+  "_id": { "$oid": "665b21bc2f1a3c001f8b8901" },
+  "userId": { "$oid": "665b1d4e2f1a3c001f8b4567" },
+  "originalUrl": "https://github.com",
+  "shortCode": "0e4UbQ",
+  "createdAt": { "$date": "2026-06-04T09:20:00.000Z" },
+  "clicks": 1
+}
+```
+
+#### VisitLogs Collection
+```json
+{
+  "_id": { "$oid": "665b21f02f1a3c001f8b9999" },
+  "urlId": { "$oid": "665b21bc2f1a3c001f8b8901" },
+  "timestamp": { "$date": "2026-06-04T09:24:20.000Z" },
+  "ipAddress": "103.241.12.89",
+  "browser": "Chrome",
+  "os": "Windows",
+  "country": "India"
+}
+```
+
+---
+
+### 3. Representative Server & Redirection Logs
+Standard log events showing the server starting, connecting to the database, client authentication, URL shortening, redirect execution, and visitor analytics logging:
+
+```text
+[2026-06-04 09:18:12] INFO: Connected to MongoDB database at mongodb://127.0.0.1:27017/urlshortener
+[2026-06-04 09:18:12] INFO: Server successfully listening on port 5000 in development mode
+[2026-06-04 09:19:45] POST /api/auth/signup - 201 Created (email: developer@katomaran.com)
+[2026-06-04 09:20:01] POST /api/auth/login - 200 OK (JWT issued)
+[2026-06-04 09:20:30] POST /api/urls - 201 Created - Original URL: https://github.com, Short Code: 0e4UbQ
+[2026-06-04 09:24:20] GET /0e4UbQ - 302 Found (Redirecting to https://github.com) [Lookup Time: 4.8ms]
+[2026-06-04 09:24:20] INFO: Background visit log queued for URL id 665b21bc2f1a3c001f8b8901 (IP: 103.241.12.89, OS: Windows, Browser: Chrome)
+[2026-06-04 09:24:20] INFO: Successfully logged click metrics in 12ms.
+```
 
 ---
 
